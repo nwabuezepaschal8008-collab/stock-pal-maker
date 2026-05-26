@@ -16,9 +16,9 @@ import { useKlines } from "../../hooks/useKlines";
 import { MiniChart } from "../../components/MiniChart";
 import { TRADING_PAIRS, INTERVALS } from "../../constants/symbols";
 
-function PairRow({ symbol, name, base }: { symbol: string; name: string; base: string }) {
+function PairRow({ symbol, name, base, index }: { symbol: string; name: string; base: string; index: number }) {
   const colors = useColors();
-  const { data, isLoading } = useKlines(symbol, "1h");
+  const { data, isLoading } = useKlines(symbol, "1h", index);
 
   const close = data?.[data.length - 1]?.close ?? 0;
   const open = data?.[0]?.open ?? close;
@@ -99,8 +99,8 @@ export default function MarketsScreen() {
         key={refreshKey}
         data={TRADING_PAIRS}
         keyExtractor={(item) => item.symbol}
-        renderItem={({ item }) => (
-          <PairRow symbol={item.symbol} name={item.name} base={item.base} />
+        renderItem={({ item, index }) => (
+          <PairRow symbol={item.symbol} name={item.name} base={item.base} index={index} />
         )}
         contentContainerStyle={{ paddingBottom: insets.bottom + 90 }}
         refreshControl={
