@@ -36,7 +36,7 @@ function IndicatorRow({
         <Text style={[styles.indicatorDetail, { color: colors.mutedForeground }]}>{detail}</Text>
       </View>
       <View style={[styles.barTrack, { backgroundColor: colors.secondary }]}>
-        <View style={[styles.barFill, { width: pct, backgroundColor: barColor }]} />
+        <View style={[styles.barFill, { width: pct as any, backgroundColor: barColor }]} />
       </View>
       <Text style={[styles.scoreText, { color: barColor, minWidth: 32 }]}>{score}</Text>
     </View>

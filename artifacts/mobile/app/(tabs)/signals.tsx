@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import { useColors } from "@/hooks/useColors";
 import { useKlines } from "../../hooks/useKlines";
 import { analyzeSignal, type SignalAnalysis } from "../../utils/signals";
 import { SignalCard } from "../../components/SignalCard";
+import { useAlerts } from "../../hooks/useAlerts";
+import { useSignalHistory } from "../../hooks/useSignalHistory";
 import { TRADING_PAIRS, INTERVALS } from "../../constants/symbols";
 
 const SIGNAL_INTERVALS = INTERVALS.filter((iv) =>
@@ -24,19 +26,39 @@ function SignalItem({
   interval,
   filter,
   index,
+  checkAlerts,
+  recordSignal,
 }: {
   symbol: string;
   interval: string;
   filter: "ALL" | "BUY" | "SELL" | "HOLD";
   index: number;
+  checkAlerts: (sym: string, price: number, prevPrice: number, signal?: string) => Promise<void>;
+  recordSignal: (sym: string, signal: any, confidence: number, price: number, interval: string) => Promise<void>;
 }) {
   const { data: klines, isLoading } = useKlines(symbol, interval, index);
   const colors = useColors();
+  const prevPriceRef = useRef<number>(0);
+  const prevSignalRef = useRef<string>("");
 
   const analysis = useMemo<SignalAnalysis | null>(() => {
     if (!klines || klines.length < 50) return null;
     return analyzeSignal(klines);
   }, [klines]);
+
+  useEffect(() => {
+    if (!analysis || !klines || klines.length === 0) return;
+    const price = klines[klines.length - 1].close;
+    const prevPrice = prevPriceRef.current || price;
+
+    checkAlerts(symbol, price, prevPrice, analysis.signal);
+    prevPriceRef.current = price;
+
+    if (analysis.signal !== prevSignalRef.current) {
+      recordSignal(symbol, analysis.signal, analysis.confidence, price, interval);
+      prevSignalRef.current = analysis.signal;
+    }
+  }, [analysis?.signal, klines]);
 
   if (isLoading) {
     return (
@@ -94,6 +116,9 @@ export default function SignalsScreen() {
   const [filter, setFilter] = useState<"ALL" | "BUY" | "SELL" | "HOLD">("ALL");
   const [tick, setTick] = useState(0);
 
+  const { checkAlerts } = useAlerts();
+  const { recordSignal } = useSignalHistory();
+
   useEffect(() => {
     const ms = interval === "1m" ? 15_000 : interval === "5m" ? 30_000 : 60_000;
     const id = globalThis.setInterval(() => setTick((t) => t + 1), ms);
@@ -142,7 +167,9 @@ export default function SignalsScreen() {
                 styles.intervalText,
                 {
                   color:
-                    interval === iv.value ? colors.primaryForeground : colors.mutedForeground,
+                    interval === iv.value
+                      ? colors.primaryForeground
+                      : colors.mutedForeground,
                 },
               ]}
             >
@@ -170,7 +197,14 @@ export default function SignalsScreen() {
         data={TRADING_PAIRS}
         keyExtractor={(item) => item.symbol}
         renderItem={({ item, index }) => (
-          <SignalItem symbol={item.symbol} interval={interval} filter={filter} index={index} />
+          <SignalItem
+            symbol={item.symbol}
+            interval={interval}
+            filter={filter}
+            index={index}
+            checkAlerts={checkAlerts}
+            recordSignal={recordSignal}
+          />
         )}
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 90 }]}
         showsVerticalScrollIndicator={false}
@@ -192,22 +226,22 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
     letterSpacing: -0.5,
   },
   headerSub: {
-    fontSize: 12,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
     marginTop: 2,
-    letterSpacing: 0.5,
   },
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    borderRadius: 8,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
     borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
   },
   liveDot: {
     width: 6,
@@ -216,57 +250,57 @@ const styles = StyleSheet.create({
   },
   liveText: {
     fontSize: 11,
-    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
     letterSpacing: 1,
   },
   intervalRow: {
     flexDirection: "row",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   intervalBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: 10,
-    borderWidth: 1,
     alignItems: "center",
+    borderWidth: 1,
   },
   intervalText: {
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
   },
   filterRow: {
     flexDirection: "row",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   filterPill: {
     flex: 1,
     paddingVertical: 7,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 20,
     alignItems: "center",
+    borderWidth: 1,
   },
   filterText: {
     fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    fontFamily: "Inter_600SemiBold",
   },
   list: {
     paddingHorizontal: 16,
-    paddingTop: 2,
+    paddingTop: 4,
   },
   loadingRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
+    borderRadius: 14,
+    marginBottom: 10,
   },
   loadingText: {
     fontSize: 14,
+    fontFamily: "Inter_500Medium",
   },
 });

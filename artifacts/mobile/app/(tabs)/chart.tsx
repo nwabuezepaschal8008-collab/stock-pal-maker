@@ -10,17 +10,22 @@ import {
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useKlines } from "../../hooks/useKlines";
 import { PriceChart } from "../../components/PriceChart";
+import { TradingViewChart } from "../../components/TradingViewChart";
 import { TRADING_PAIRS, INTERVALS } from "../../constants/symbols";
+
+type ChartMode = "native" | "tradingview";
 
 export default function ChartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [symbol, setSymbol] = useState("BTCUSDT");
-  const [interval, setInterval] = useState("1h");
+  const [interval, setChartInterval] = useState("1h");
+  const [chartMode, setChartMode] = useState<ChartMode>("tradingview");
 
   const { data: klines, isLoading, error, refetch } = useKlines(symbol, interval);
 
@@ -51,9 +56,39 @@ export default function ChartScreen() {
     >
       <View style={[styles.header, { paddingTop: topPad + 16 }]}>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Chart</Text>
+        <View style={[styles.modeSwitch, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
+          {(["tradingview", "native"] as ChartMode[]).map((m) => (
+            <TouchableOpacity
+              key={m}
+              onPress={() => setChartMode(m)}
+              style={[
+                styles.modeBtn,
+                chartMode === m && { backgroundColor: colors.primary },
+              ]}
+            >
+              <Feather
+                name={m === "tradingview" ? "tv" : "bar-chart-2"}
+                size={14}
+                color={chartMode === m ? colors.primaryForeground : colors.mutedForeground}
+              />
+              <Text
+                style={[
+                  styles.modeBtnText,
+                  { color: chartMode === m ? colors.primaryForeground : colors.mutedForeground },
+                ]}
+              >
+                {m === "tradingview" ? "TradingView" : "Simple"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.symbolRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.symbolRow}
+      >
         {TRADING_PAIRS.map((p) => (
           <TouchableOpacity
             key={p.symbol}
@@ -69,7 +104,12 @@ export default function ChartScreen() {
             <Text
               style={[
                 styles.symbolPillText,
-                { color: symbol === p.symbol ? colors.primaryForeground : colors.mutedForeground },
+                {
+                  color:
+                    symbol === p.symbol
+                      ? colors.primaryForeground
+                      : colors.mutedForeground,
+                },
               ]}
             >
               {p.base}
@@ -82,9 +122,25 @@ export default function ChartScreen() {
         <Text style={[styles.pairName, { color: colors.mutedForeground }]}>
           {currentPair?.name ?? symbol} / USDT
         </Text>
-        <Text style={[styles.currentPrice, { color: colors.foreground }]}>${priceFormatted}</Text>
-        <View style={[styles.changePill, { backgroundColor: isUp ? `${colors.bullish}20` : `${colors.bearish}20` }]}>
-          <Text style={[styles.priceChange, { color: isUp ? colors.bullish : colors.bearish }]}>
+        <Text style={[styles.currentPrice, { color: colors.foreground }]}>
+          ${priceFormatted}
+        </Text>
+        <View
+          style={[
+            styles.changePill,
+            {
+              backgroundColor: isUp
+                ? `${colors.bullish}20`
+                : `${colors.bearish}20`,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.priceChange,
+              { color: isUp ? colors.bullish : colors.bearish },
+            ]}
+          >
             {isUp ? "▲" : "▼"} {Math.abs(priceChange).toFixed(2)}%
           </Text>
         </View>
@@ -94,18 +150,24 @@ export default function ChartScreen() {
         {INTERVALS.map((iv) => (
           <TouchableOpacity
             key={iv.value}
-            onPress={() => setInterval(iv.value)}
+            onPress={() => setChartInterval(iv.value)}
             style={[
               styles.intervalBtn,
               {
-                backgroundColor: interval === iv.value ? colors.primary : "transparent",
+                backgroundColor:
+                  interval === iv.value ? colors.primary : "transparent",
               },
             ]}
           >
             <Text
               style={[
                 styles.intervalText,
-                { color: interval === iv.value ? colors.primaryForeground : colors.mutedForeground },
+                {
+                  color:
+                    interval === iv.value
+                      ? colors.primaryForeground
+                      : colors.mutedForeground,
+                },
               ]}
             >
               {iv.label}
@@ -114,34 +176,71 @@ export default function ChartScreen() {
         ))}
       </View>
 
-      <View style={[styles.chartCard, { backgroundColor: colors.card }]}>
-        {isLoading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        ) : error ? (
-          <View style={styles.loadingBox}>
-            <Text style={{ color: colors.bearish }}>Failed to load</Text>
-            <TouchableOpacity onPress={() => refetch()} style={styles.retryBtn}>
-              <Text style={{ color: colors.primary }}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <PriceChart klines={klines ?? []} width={chartWidth - 32} height={200} />
-        )}
-      </View>
+      {chartMode === "tradingview" ? (
+        <TradingViewChart symbol={symbol} interval={interval} height={440} />
+      ) : (
+        <View style={[styles.chartCard, { backgroundColor: colors.card }]}>
+          {isLoading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : error ? (
+            <View style={styles.loadingBox}>
+              <Text style={{ color: colors.bearish }}>Failed to load</Text>
+              <TouchableOpacity onPress={() => refetch()} style={styles.retryBtn}>
+                <Text style={{ color: colors.primary }}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <PriceChart klines={klines ?? []} width={chartWidth - 32} height={200} />
+          )}
+        </View>
+      )}
 
       {last && (
         <View style={styles.statsGrid}>
           {[
-            { label: "Open", value: last.open >= 1000 ? `$${last.open.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : `$${last.open.toFixed(4)}` },
-            { label: "High", value: last.high >= 1000 ? `$${last.high.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : `$${last.high.toFixed(4)}` },
-            { label: "Low", value: last.low >= 1000 ? `$${last.low.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : `$${last.low.toFixed(4)}` },
-            { label: "Volume", value: last.volume >= 1000 ? `${(last.volume / 1000).toFixed(2)}K` : last.volume.toFixed(2) },
+            {
+              label: "Open",
+              value:
+                last.open >= 1000
+                  ? `$${last.open.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+                  : `$${last.open.toFixed(4)}`,
+            },
+            {
+              label: "High",
+              value:
+                last.high >= 1000
+                  ? `$${last.high.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+                  : `$${last.high.toFixed(4)}`,
+            },
+            {
+              label: "Low",
+              value:
+                last.low >= 1000
+                  ? `$${last.low.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+                  : `$${last.low.toFixed(4)}`,
+            },
+            {
+              label: "Volume",
+              value:
+                last.volume >= 1_000_000
+                  ? `${(last.volume / 1_000_000).toFixed(2)}M`
+                  : last.volume >= 1000
+                  ? `${(last.volume / 1000).toFixed(2)}K`
+                  : last.volume.toFixed(2),
+            },
           ].map(({ label, value }) => (
-            <View key={label} style={[styles.statBox, { backgroundColor: colors.card }]}>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{label}</Text>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>{value}</Text>
+            <View
+              key={label}
+              style={[styles.statBox, { backgroundColor: colors.card }]}
+            >
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
+                {label}
+              </Text>
+              <Text style={[styles.statValue, { color: colors.foreground }]}>
+                {value}
+              </Text>
             </View>
           ))}
         </View>
@@ -155,27 +254,36 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingBottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    letterSpacing: -0.5,
+  headerTitle: { fontSize: 28, fontFamily: "Inter_700Bold", letterSpacing: -0.5 },
+  modeSwitch: {
+    flexDirection: "row",
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: "hidden",
+    padding: 3,
+    gap: 3,
   },
-  symbolRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+  modeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 7,
   },
+  modeBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  symbolRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
   symbolPill: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
   },
-  symbolPillText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
+  symbolPillText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   priceBlock: {
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -184,24 +292,14 @@ const styles = StyleSheet.create({
     gap: 10,
     flexWrap: "wrap",
   },
-  pairName: {
-    fontSize: 13,
-    marginRight: 4,
-  },
+  pairName: { fontSize: 13, fontFamily: "Inter_400Regular", marginRight: 4 },
   currentPrice: {
     fontSize: 26,
-    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
     letterSpacing: -0.5,
   },
-  changePill: {
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  priceChange: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
+  changePill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  priceChange: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   intervalRow: {
     flexDirection: "row",
     paddingHorizontal: 16,
@@ -214,10 +312,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
   },
-  intervalText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
+  intervalText: { fontSize: 12, fontFamily: "Inter_700Bold" },
   chartCard: {
     marginHorizontal: 16,
     borderRadius: 16,
@@ -229,10 +324,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  retryBtn: {
-    marginTop: 8,
-    padding: 8,
-  },
+  retryBtn: { marginTop: 8, padding: 8 },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -240,18 +332,12 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 16,
   },
-  statBox: {
-    width: "47%",
-    borderRadius: 12,
-    padding: 14,
-  },
+  statBox: { width: "47%", borderRadius: 12, padding: 14 },
   statLabel: {
     fontSize: 11,
+    fontFamily: "Inter_400Regular",
     marginBottom: 4,
     letterSpacing: 0.5,
   },
-  statValue: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  statValue: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
 });
