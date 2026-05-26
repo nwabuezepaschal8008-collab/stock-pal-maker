@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "uXs96E3ELq8E_3YbF9iUq"
+uri = "file://artifacts/mobile/assets/images/icon.png"
+type = "image"
+title = "crypto-trading-icon"
